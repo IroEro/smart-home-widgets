@@ -133,6 +133,7 @@ async function sendAndCollect(
 
 /**
  * Send a packet and wait for the first matching response.
+ * bind → addListener → send to avoid missing early responses.
  */
 async function sendAndWait(
   address: string,
@@ -141,10 +142,15 @@ async function sendAndWait(
   key?: string
 ): Promise<Record<string, unknown>> {
   return withSocket(async (socketId, udp) => {
-    return new Promise<Record<string, unknown>>(async (resolve, reject) => {
+    // Bind first so the socket is ready before we send
+    await udp.bind({ socketId, address: "0.0.0.0", port: DEVICE_PORT });
+
+    return new Promise<Record<string, unknown>>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("UDP timeout")), CMD_TIMEOUT_MS);
 
-      const handle = await udp.addListener("receive", (event: { socketId: number; buffer: string; remoteAddress: string }) => {
+      let handle: { remove: () => void } | null = null;
+
+      udp.addListener("receive", (event: { socketId: number; buffer: string; remoteAddress: string }) => {
         if (event.socketId !== socketId) return;
         try {
           const str = decodeBuffer(event.buffer);
@@ -158,14 +164,16 @@ async function sendAndWait(
           }
           if (match(data)) {
             clearTimeout(timer);
-            handle.remove();
+            handle?.remove();
             resolve(data);
           }
         } catch { /* ignore */ }
-      });
-
-      await udp.bind({ socketId, address: "0.0.0.0", port: DEVICE_PORT });
-      await udp.send({ socketId, address, port: DEVICE_PORT, buffer: encodeBuffer(packet) });
+      }).then((h) => {
+        handle = h;
+        // Send only after listener is registered
+        udp.send({ socketId, address, port: DEVICE_PORT, buffer: encodeBuffer(packet) })
+          .catch((err: Error) => { clearTimeout(timer); reject(err); });
+      }).catch((err: Error) => { clearTimeout(timer); reject(err); });
     });
   });
 }

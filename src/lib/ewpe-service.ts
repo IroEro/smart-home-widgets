@@ -5,11 +5,9 @@
  *   1. Direct UDP  – native Android + no bridge URL configured
  *   2. HTTP bridge – bridge URL is set (ewpe-smart-mqtt running locally or remotely)
  *   3. Mock data   – web / PWA / no bridge URL on non-native platforms
- *
- * For the native UDP path, run:
- *   npx cap sync
- * after installing this update so the capacitor-udp native plugin is linked.
  */
+
+import { Capacitor } from "@capacitor/core";
 
 export type AcMode = "cool" | "heat" | "dry" | "fan" | "auto";
 export type FanSpeed = "auto" | "low" | "medium" | "high" | "turbo";
@@ -128,11 +126,7 @@ export function hasBridgeUrl(): boolean {
 function getMode(): "udp" | "bridge" | "mock" {
   const url = getBridgeUrl();
   if (url) return "bridge";
-  // Dynamic import check — isDirectUdpAvailable is sync
-  try {
-    const { isDirectUdpAvailable } = require("./ewpe-udp") as typeof import("./ewpe-udp");
-    if (isDirectUdpAvailable()) return "udp";
-  } catch { /* plugin not loaded yet */ }
+  if (Capacitor.isNativePlatform()) return "udp";
   return "mock";
 }
 
