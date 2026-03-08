@@ -1,15 +1,38 @@
 import { AcDevice, FanSpeed } from "@/lib/ewpe-service";
 import { ModeBadge } from "./ModeBadge";
-import { Power, Wifi, WifiOff, RefreshCw, Feather, Wind, Zap, Rocket, type LucideIcon } from "lucide-react";
+import { Power, Wifi, WifiOff, Wind } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const FAN_ICON: Record<FanSpeed, LucideIcon> = {
-  auto:   RefreshCw,
-  low:    Feather,
-  medium: Wind,
-  high:   Zap,
-  turbo:  Rocket,
+const FAN_BARS: Record<FanSpeed, number> = {
+  auto:   0,
+  low:    1,
+  medium: 2,
+  high:   3,
+  turbo:  4,
 };
+
+function FanSpeedIcon({ speed, active }: { speed: FanSpeed; active: boolean }) {
+  const bars = FAN_BARS[speed];
+  if (speed === "auto") {
+    return <Wind className={cn("w-[15px] h-[15px] shrink-0", active ? "text-primary" : "text-muted-foreground")} strokeWidth={2} />;
+  }
+  return (
+    <div className="flex items-end gap-px h-[15px]">
+      {[1, 2, 3, 4].map((b) => (
+        <div
+          key={b}
+          className={cn(
+            "w-[3px] rounded-sm",
+            b <= bars
+              ? active ? "bg-primary" : "bg-muted-foreground"
+              : "bg-muted"
+          )}
+          style={{ height: `${b * 3 + 2}px` }}
+        />
+      ))}
+    </div>
+  );
+}
 
 interface DeviceCardProps {
   device: AcDevice;
@@ -19,8 +42,7 @@ interface DeviceCardProps {
 
 export function DeviceCard({ device, onPress, onTogglePower }: DeviceCardProps) {
   const { state, online } = device;
-
-  const FanIcon = FAN_ICON[state.fanSpeed];
+  const isActive = state.power && online;
 
   return (
     <div
@@ -83,8 +105,8 @@ export function DeviceCard({ device, onPress, onTogglePower }: DeviceCardProps) 
           </div>
           <div className="flex items-center gap-1.5">
             <ModeBadge mode={state.mode} />
-            <span className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-secondary/60 px-2.5 py-0.5 text-[13px] text-muted-foreground">
-              <FanIcon className="w-[15px] h-[15px] shrink-0" strokeWidth={2} />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-secondary/60 px-2.5 py-0.5 text-[13px] text-muted-foreground">
+              <FanSpeedIcon speed={state.fanSpeed} active={isActive} />
               <span className="capitalize">{state.fanSpeed === "auto" ? "Auto" : state.fanSpeed}</span>
             </span>
             {!online && (
