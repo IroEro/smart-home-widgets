@@ -42,7 +42,7 @@ export default function Index() {
     <div className="min-h-screen flex flex-col">
       {/* Hero header */}
       <div
-        className="relative pt-10 pb-8 px-5 overflow-hidden"
+        className="relative pt-6 pb-3 px-4 overflow-hidden"
         style={{
           backgroundImage: `url(${bgHero})`,
           backgroundSize: "cover",
@@ -54,62 +54,58 @@ export default function Index() {
 
         <div className="relative z-10">
           {/* App bar */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center">
-                <Thermometer className="w-4 h-4 text-primary" />
+              <div className="w-7 h-7 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
+                <Thermometer className="w-3.5 h-3.5 text-primary" />
               </div>
-              <span className="font-semibold text-foreground text-lg">EWPE Smart</span>
+              <span className="font-semibold text-foreground text-base">EWPE Smart</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={handleScan}
                 disabled={scanning}
-                className="w-9 h-9 rounded-xl glass flex items-center justify-center transition active:scale-90 hover:bg-secondary"
+                className="w-8 h-8 rounded-lg glass flex items-center justify-center transition active:scale-90 hover:bg-secondary"
               >
-                <RefreshCw className={cn("w-4 h-4 text-foreground", scanning && "animate-spin")} />
+                <RefreshCw className={cn("w-3.5 h-3.5 text-foreground", scanning && "animate-spin")} />
               </button>
               <button
                 onClick={() => navigate("/settings")}
-                className="w-9 h-9 rounded-xl glass flex items-center justify-center transition active:scale-90 hover:bg-secondary"
+                className="w-8 h-8 rounded-lg glass flex items-center justify-center transition active:scale-90 hover:bg-secondary"
               >
-                <Settings className="w-4 h-4 text-foreground" />
+                <Settings className="w-3.5 h-3.5 text-foreground" />
               </button>
             </div>
           </div>
 
           {/* Stats */}
-          <div className="flex gap-4">
-            <div className="glass rounded-xl px-4 py-3 flex-1 text-center">
-              <div className="flex items-center justify-center gap-1.5 mb-0.5">
-                <Wifi className="w-3.5 h-3.5 text-primary" />
-                <span className="text-2xl font-semibold font-mono text-foreground">{onlineCount}</span>
-              </div>
-              <span className="text-xs text-muted-foreground">Online</span>
+          <div className="flex gap-2">
+            <div className="glass rounded-lg px-3 py-1.5 flex-1 flex items-center justify-center gap-1.5">
+              <Wifi className="w-3 h-3 text-primary" />
+              <span className="text-base font-semibold font-mono text-foreground">{onlineCount}</span>
+              <span className="text-[11px] text-muted-foreground">Online</span>
             </div>
-            <div className="glass rounded-xl px-4 py-3 flex-1 text-center">
-              <div className="flex items-center justify-center gap-1.5 mb-0.5">
-                <div className={cn("w-2 h-2 rounded-full", activeCount > 0 ? "bg-primary animate-pulse" : "bg-muted")} />
-                <span className="text-2xl font-semibold font-mono text-foreground">{activeCount}</span>
-              </div>
-              <span className="text-xs text-muted-foreground">Running</span>
+            <div className="glass rounded-lg px-3 py-1.5 flex-1 flex items-center justify-center gap-1.5">
+              <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", activeCount > 0 ? "bg-primary animate-pulse" : "bg-muted")} />
+              <span className="text-base font-semibold font-mono text-foreground">{activeCount}</span>
+              <span className="text-[11px] text-muted-foreground">Running</span>
             </div>
-            <div className="glass rounded-xl px-4 py-3 flex-1 text-center">
-              <span className="text-2xl font-semibold font-mono text-foreground">{devices.length}</span>
-              <div className="text-xs text-muted-foreground mt-0.5">Total</div>
+            <div className="glass rounded-lg px-3 py-1.5 flex-1 flex items-center justify-center gap-1.5">
+              <span className="text-base font-semibold font-mono text-foreground">{devices.length}</span>
+              <span className="text-[11px] text-muted-foreground">Total</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Device list */}
-      <div className="flex-1 px-5 pt-5 pb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">
+      <div className="flex-1 px-4 pt-3 pb-4">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
             Devices
           </h2>
           {scanning && (
-            <span className="text-xs text-primary animate-pulse">Scanning network…</span>
+            <span className="text-xs text-primary animate-pulse">Scanning…</span>
           )}
         </div>
 
