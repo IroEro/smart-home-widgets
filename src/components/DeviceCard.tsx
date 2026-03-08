@@ -1,22 +1,14 @@
-import { AcDevice } from "@/lib/ewpe-service";
+import { AcDevice, FanSpeed } from "@/lib/ewpe-service";
 import { ModeBadge } from "./ModeBadge";
-import { Power, Wifi, WifiOff, Wind } from "lucide-react";
+import { Power, Wifi, WifiOff, RefreshCw, Feather, Wind, Zap, Rocket, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const FAN_ANIM: Record<string, string> = {
-  auto:   "animate-fan-slow",
-  low:    "animate-fan-slow",
-  medium: "animate-fan",
-  high:   "animate-fan",
-  turbo:  "animate-fan",
-};
-
-const FAN_SPEED_STYLE: Record<string, string> = {
-  auto:   "animation-duration-[4s]",
-  low:    "animation-duration-[3.5s]",
-  medium: "animation-duration-[1.5s]",
-  high:   "animation-duration-[0.8s]",
-  turbo:  "animation-duration-[0.4s]",
+const FAN_ICON: Record<FanSpeed, LucideIcon> = {
+  auto:   RefreshCw,
+  low:    Feather,
+  medium: Wind,
+  high:   Zap,
+  turbo:  Rocket,
 };
 
 interface DeviceCardProps {
@@ -28,7 +20,7 @@ interface DeviceCardProps {
 export function DeviceCard({ device, onPress, onTogglePower }: DeviceCardProps) {
   const { state, online } = device;
 
-  const tempDiff = state.currentTemp - state.targetTemp;
+  const FanIcon = FAN_ICON[state.fanSpeed];
 
   return (
     <div
@@ -47,11 +39,9 @@ export function DeviceCard({ device, onPress, onTogglePower }: DeviceCardProps) 
       <div className="px-4 py-3">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="min-w-0">
-              <h3 className="font-semibold text-foreground text-sm leading-tight truncate">{device.name}</h3>
-              <p className="text-[11px] text-muted-foreground truncate">{device.model}</p>
-            </div>
+          <div className="min-w-0">
+            <h3 className="font-semibold text-foreground text-sm leading-tight truncate">{device.name}</h3>
+            <p className="text-[11px] text-muted-foreground truncate">{device.model}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {online ? (
@@ -94,19 +84,7 @@ export function DeviceCard({ device, onPress, onTogglePower }: DeviceCardProps) 
           <div className="flex items-center gap-1.5">
             <ModeBadge mode={state.mode} />
             <span className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-secondary/60 px-2.5 py-0.5 text-[13px] text-muted-foreground">
-              <Wind
-                className={cn(
-                  "w-3 h-3 shrink-0",
-                  state.power && online ? FAN_ANIM[state.fanSpeed] : ""
-                )}
-                style={state.power && online ? {
-                  animationDuration:
-                    state.fanSpeed === "turbo" ? "0.4s" :
-                    state.fanSpeed === "high"  ? "0.8s" :
-                    state.fanSpeed === "medium"? "1.5s" :
-                    state.fanSpeed === "low"   ? "3.5s" : "4s"
-                } : undefined}
-              />
+              <FanIcon className="w-[15px] h-[15px] shrink-0" strokeWidth={2} />
               <span className="capitalize">{state.fanSpeed === "auto" ? "Auto" : state.fanSpeed}</span>
             </span>
             {!online && (
