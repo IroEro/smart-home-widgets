@@ -1,19 +1,14 @@
 /**
  * EWPE Smart Bridge Service
  *
- * Communicates with the ewpe-smart-mqtt bridge via HTTP REST.
- * The bridge URL is read at call-time from localStorage so Settings
- * changes take effect immediately without a reload.
+ * Transport priority (evaluated at call time):
+ *   1. Direct UDP  – native Android + no bridge URL configured
+ *   2. HTTP bridge – bridge URL is set (ewpe-smart-mqtt running locally or remotely)
+ *   3. Mock data   – web / PWA / no bridge URL on non-native platforms
  *
- * On Android native the bridge can run locally via Termux — no
- * separate server required. Default localhost URL: http://localhost:3000
- *
- * To connect to real devices:
- *  1. Install Termux on your Android device
- *  2. Run the ewpe-smart-mqtt bridge inside Termux (see Settings → Bridge Setup)
- *  3. Set Bridge URL to http://localhost:3000 in Settings and tap Save
- *
- * Current mode: MOCK when no bridge URL is configured.
+ * For the native UDP path, run:
+ *   npx cap sync
+ * after installing this update so the capacitor-udp native plugin is linked.
  */
 
 export type AcMode = "cool" | "heat" | "dry" | "fan" | "auto";
@@ -44,7 +39,8 @@ export interface AcState {
   quietMode: boolean;
 }
 
-// ====== MOCK DATA ======
+// ── Mock data ─────────────────────────────────────────────────────────────────
+
 const MOCK_DEVICES: AcDevice[] = [
   {
     id: "ac_living_room",
@@ -111,78 +107,133 @@ const MOCK_DEVICES: AcDevice[] = [
   },
 ];
 
-// In-memory state for mock
 let mockDevices = JSON.parse(JSON.stringify(MOCK_DEVICES)) as AcDevice[];
 
-// ====== Runtime bridge config ======
-// Read from localStorage at each call so Settings changes are instant.
+// ── Runtime config ────────────────────────────────────────────────────────────
+
 function getBridgeUrl(): string {
   return localStorage.getItem("ewpe_bridge_url")?.trim() ?? "";
 }
 
-function getPollInterval(): number {
+export function getPollInterval(): number {
   return parseInt(localStorage.getItem("ewpe_poll_interval") ?? "5000", 10);
 }
 
-export { getPollInterval };
+/** True when a bridge URL has been configured */
+export function hasBridgeUrl(): boolean {
+  return getBridgeUrl().length > 0;
+}
 
-// ====== API functions ======
+/** Determines active transport mode */
+function getMode(): "udp" | "bridge" | "mock" {
+  const url = getBridgeUrl();
+  if (url) return "bridge";
+  // Dynamic import check — isDirectUdpAvailable is sync
+  try {
+    const { isDirectUdpAvailable } = require("./ewpe-udp") as typeof import("./ewpe-udp");
+    if (isDirectUdpAvailable()) return "udp";
+  } catch { /* plugin not loaded yet */ }
+  return "mock";
+}
+
+// Cache scanned UDP devices so fetchDevice/setDeviceState can look them up
+let udpDeviceCache: AcDevice[] = [];
+
+// ── Public API ────────────────────────────────────────────────────────────────
 
 export async function fetchDevices(): Promise<AcDevice[]> {
-  const url = getBridgeUrl();
-  if (!url) {
-    await delay(400);
-    return JSON.parse(JSON.stringify(mockDevices));
+  const mode = getMode();
+
+  if (mode === "bridge") {
+    const res = await fetch(`${getBridgeUrl()}/devices`);
+    if (!res.ok) throw new Error(`Bridge error: ${res.status}`);
+    return res.json();
   }
-  const res = await fetch(`${url}/devices`);
-  if (!res.ok) throw new Error(`Bridge error: ${res.status}`);
-  return res.json();
+
+  if (mode === "udp") {
+    const { udpScanDevices } = await import("./ewpe-udp");
+    const devices = await udpScanDevices();
+    udpDeviceCache = devices;
+    return devices;
+  }
+
+  // mock
+  await delay(400);
+  return JSON.parse(JSON.stringify(mockDevices));
 }
 
 export async function fetchDevice(id: string): Promise<AcDevice | undefined> {
-  const url = getBridgeUrl();
-  if (!url) {
-    await delay(200);
-    return JSON.parse(JSON.stringify(mockDevices.find((d) => d.id === id)));
+  const mode = getMode();
+
+  if (mode === "bridge") {
+    const res = await fetch(`${getBridgeUrl()}/devices/${id}`);
+    if (!res.ok) throw new Error(`Bridge error: ${res.status}`);
+    return res.json();
   }
-  const res = await fetch(`${url}/devices/${id}`);
-  if (!res.ok) throw new Error(`Bridge error: ${res.status}`);
-  return res.json();
+
+  if (mode === "udp") {
+    const { udpFetchDevice } = await import("./ewpe-udp");
+    return udpFetchDevice(id, udpDeviceCache);
+  }
+
+  // mock
+  await delay(200);
+  return JSON.parse(JSON.stringify(mockDevices.find((d) => d.id === id)));
 }
 
 export async function setDeviceState(
   id: string,
   patch: Partial<AcState>
 ): Promise<AcDevice> {
-  const url = getBridgeUrl();
-  if (!url) {
-    await delay(150);
-    const device = mockDevices.find((d) => d.id === id);
-    if (!device) throw new Error("Device not found");
-    device.state = { ...device.state, ...patch };
-    return JSON.parse(JSON.stringify(device));
+  const mode = getMode();
+
+  if (mode === "bridge") {
+    const res = await fetch(`${getBridgeUrl()}/devices/${id}/state`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (!res.ok) throw new Error(`Bridge error: ${res.status}`);
+    return res.json();
   }
-  const res = await fetch(`${url}/devices/${id}/state`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(patch),
-  });
-  if (!res.ok) throw new Error(`Bridge error: ${res.status}`);
-  return res.json();
+
+  if (mode === "udp") {
+    const device = udpDeviceCache.find((d) => d.id === id);
+    if (!device) throw new Error("Device not found in UDP cache – scan first");
+    const { udpSetDeviceState } = await import("./ewpe-udp");
+    const updated = await udpSetDeviceState(device, patch);
+    udpDeviceCache = udpDeviceCache.map((d) => (d.id === id ? updated : d));
+    return updated;
+  }
+
+  // mock
+  await delay(150);
+  const device = mockDevices.find((d) => d.id === id);
+  if (!device) throw new Error("Device not found");
+  device.state = { ...device.state, ...patch };
+  return JSON.parse(JSON.stringify(device));
 }
 
 export async function discoverDevices(): Promise<AcDevice[]> {
-  const url = getBridgeUrl();
-  if (!url) {
-    await delay(1500);
-    return JSON.parse(JSON.stringify(mockDevices));
+  const mode = getMode();
+
+  if (mode === "bridge") {
+    const res = await fetch(`${getBridgeUrl()}/scan`);
+    if (!res.ok) throw new Error(`Bridge error: ${res.status}`);
+    return res.json();
   }
-  const res = await fetch(`${url}/scan`);
-  if (!res.ok) throw new Error(`Bridge error: ${res.status}`);
-  return res.json();
+
+  if (mode === "udp") {
+    // discoverDevices triggers a fresh scan
+    return fetchDevices();
+  }
+
+  // mock
+  await delay(1500);
+  return JSON.parse(JSON.stringify(mockDevices));
 }
 
-/** Ping the bridge and return true if reachable */
+/** Ping the bridge and return true if reachable (bridge mode only) */
 export async function pingBridge(): Promise<boolean> {
   const url = getBridgeUrl();
   if (!url) return false;
@@ -194,16 +245,12 @@ export async function pingBridge(): Promise<boolean> {
   }
 }
 
-/** True when a bridge URL has been configured */
-export function hasBridgeUrl(): boolean {
-  return getBridgeUrl().length > 0;
-}
-
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Mode metadata helpers
+// ── Mode metadata helpers ─────────────────────────────────────────────────────
+
 export const MODE_META: Record<
   AcMode,
   { label: string; color: string; icon: string }
