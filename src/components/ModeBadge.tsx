@@ -43,7 +43,7 @@ export function ModeBadge({ mode, className }: ModeBadgeProps) {
         className
       )}
     >
-      <Icon className="w-3 h-3 shrink-0" strokeWidth={2.5} />
+      <Icon className="w-[15px] h-[15px] shrink-0" strokeWidth={2.5} />
       {labels[mode]}
     </span>
   );
