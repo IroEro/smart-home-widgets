@@ -1,0 +1,22 @@
+{
+  "appId": "app.lovable.0bf9232bd9d34362a90426bc45f635e9",
+  "appName": "EWPE Smart",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://0bf9232b-d9d3-4362-a904-26bc45f635e9.lovableproject.com?forceHideBadge=true",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#0d1117"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1000,
+      "backgroundColor": "#0d1117",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP"
+    }
+  }
+}
