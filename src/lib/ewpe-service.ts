@@ -126,11 +126,7 @@ export function hasBridgeUrl(): boolean {
 function getMode(): "udp" | "bridge" | "mock" {
   const url = getBridgeUrl();
   if (url) return "bridge";
-  // Dynamic import check — isDirectUdpAvailable is sync
-  try {
-    const { isDirectUdpAvailable } = require("./ewpe-udp") as typeof import("./ewpe-udp");
-    if (isDirectUdpAvailable()) return "udp";
-  } catch { /* plugin not loaded yet */ }
+  if (Capacitor.isNativePlatform()) return "udp";
   return "mock";
 }
 
