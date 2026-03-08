@@ -3,6 +3,22 @@ import { ModeBadge } from "./ModeBadge";
 import { Power, Wifi, WifiOff, Wind } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const FAN_ANIM: Record<string, string> = {
+  auto:   "animate-fan-slow",
+  low:    "animate-fan-slow",
+  medium: "animate-fan",
+  high:   "animate-fan",
+  turbo:  "animate-fan",
+};
+
+const FAN_SPEED_STYLE: Record<string, string> = {
+  auto:   "animation-duration-[4s]",
+  low:    "animation-duration-[3.5s]",
+  medium: "animation-duration-[1.5s]",
+  high:   "animation-duration-[0.8s]",
+  turbo:  "animation-duration-[0.4s]",
+};
+
 interface DeviceCardProps {
   device: AcDevice;
   onPress: () => void;
