@@ -18,7 +18,7 @@ export function DeviceCard({ device, onPress, onTogglePower }: DeviceCardProps) 
     <div
       onClick={onPress}
       className={cn(
-        "relative overflow-hidden rounded-2xl border cursor-pointer transition-all duration-300 active:scale-95",
+        "relative overflow-hidden rounded-xl border cursor-pointer transition-all duration-300 active:scale-95",
         "card-gradient animate-fade-in",
         online ? "border-border/60 hover:border-primary/30" : "border-border/30 opacity-60"
       )}
@@ -28,87 +28,57 @@ export function DeviceCard({ device, onPress, onTogglePower }: DeviceCardProps) 
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
       )}
 
-      <div className="p-5">
+      <div className="px-4 py-3">
         {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="font-semibold text-foreground text-base leading-tight">{device.name}</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">{device.model}</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="min-w-0">
+              <h3 className="font-semibold text-foreground text-sm leading-tight truncate">{device.name}</h3>
+              <p className="text-[11px] text-muted-foreground truncate">{device.model}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            {/* Online indicator */}
+          <div className="flex items-center gap-2 shrink-0">
             {online ? (
-              <Wifi className="w-3.5 h-3.5 text-primary opacity-70" />
+              <Wifi className="w-3 h-3 text-primary opacity-70" />
             ) : (
-              <WifiOff className="w-3.5 h-3.5 text-muted-foreground" />
+              <WifiOff className="w-3 h-3 text-muted-foreground" />
             )}
-            {/* Power button */}
             <button
               onClick={onTogglePower}
               disabled={!online}
               className={cn(
-                "w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200",
+                "w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200",
                 "border border-border/50",
                 state.power && online
-                  ? "bg-primary text-primary-foreground glow-primary animate-pulse-ring"
+                  ? "bg-primary text-primary-foreground glow-primary"
                   : "bg-secondary text-muted-foreground hover:bg-muted"
               )}
             >
-              <Power className="w-4 h-4" />
+              <Power className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
-        {/* Temperature display */}
-        <div className="flex items-end justify-between mb-4">
-          <div>
-            <div className="flex items-baseline gap-1">
-              <span
-                className={cn(
-                  "text-4xl font-light font-mono",
-                  state.power && online ? "text-foreground glow-text" : "text-muted-foreground"
-                )}
-              >
-                {state.targetTemp}
-              </span>
-              <span className="text-lg text-muted-foreground">°C</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Room: <span className="text-foreground/70">{state.currentTemp}°C</span>
-            </p>
+        {/* Temperature + mode row */}
+        <div className="flex items-center justify-between mt-2">
+          <div className="flex items-baseline gap-1">
+            <span
+              className={cn(
+                "text-3xl font-light font-mono",
+                state.power && online ? "text-foreground glow-text" : "text-muted-foreground"
+              )}
+            >
+              {state.targetTemp}
+            </span>
+            <span className="text-sm text-muted-foreground">°C</span>
+            <span className="text-[11px] text-muted-foreground ml-1">
+              / {state.currentTemp}°
+            </span>
           </div>
-
-          {/* Visual temp bar */}
-          {online && state.power && (
-            <div className="flex flex-col items-center gap-1">
-              <div className="w-1.5 h-16 rounded-full bg-secondary overflow-hidden">
-                <div
-                  className="w-full rounded-full transition-all duration-500"
-                  style={{
-                    height: `${Math.min(100, Math.max(10, ((state.currentTemp - 16) / (35 - 16)) * 100))}%`,
-                    background:
-                      state.mode === "heat"
-                        ? "linear-gradient(to top, hsl(38,90%,55%), hsl(20,90%,48%))"
-                        : "linear-gradient(to top, hsl(185,80%,48%), hsl(210,90%,60%))",
-                    marginTop: "auto",
-                    display: "block",
-                  }}
-                />
-              </div>
-              <span className="text-[10px] text-muted-foreground font-mono">{state.currentTemp}°</span>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between">
-          <ModeBadge mode={state.mode} />
           <div className="flex items-center gap-2">
-            {state.fanSpeed !== "auto" && (
-              <span className="text-xs text-muted-foreground capitalize">{state.fanSpeed}</span>
-            )}
+            <ModeBadge mode={state.mode} />
             {!online && (
-              <span className="text-xs text-muted-foreground">Offline</span>
+              <span className="text-[11px] text-muted-foreground">Offline</span>
             )}
           </div>
         </div>
