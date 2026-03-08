@@ -1,6 +1,6 @@
 import { AcDevice } from "@/lib/ewpe-service";
 import { ModeBadge } from "./ModeBadge";
-import { Power, Wifi, WifiOff } from "lucide-react";
+import { Power, Wifi, WifiOff, Wind } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DeviceCardProps {
