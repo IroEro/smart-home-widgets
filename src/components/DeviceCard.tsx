@@ -42,8 +42,7 @@ interface DeviceCardProps {
 
 export function DeviceCard({ device, onPress, onTogglePower }: DeviceCardProps) {
   const { state, online } = device;
-
-  const FanIcon = FAN_ICON[state.fanSpeed];
+  const isActive = state.power && online;
 
   return (
     <div
