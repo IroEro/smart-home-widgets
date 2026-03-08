@@ -105,8 +105,8 @@ export function DeviceCard({ device, onPress, onTogglePower }: DeviceCardProps) 
           </div>
           <div className="flex items-center gap-1.5">
             <ModeBadge mode={state.mode} />
-            <span className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-secondary/60 px-2.5 py-0.5 text-[13px] text-muted-foreground">
-              <FanIcon className="w-[15px] h-[15px] shrink-0" strokeWidth={2} />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/40 bg-secondary/60 px-2.5 py-0.5 text-[13px] text-muted-foreground">
+              <FanSpeedIcon speed={state.fanSpeed} active={isActive} />
               <span className="capitalize">{state.fanSpeed === "auto" ? "Auto" : state.fanSpeed}</span>
             </span>
             {!online && (
