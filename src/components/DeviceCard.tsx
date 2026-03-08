@@ -1,15 +1,38 @@
 import { AcDevice, FanSpeed } from "@/lib/ewpe-service";
 import { ModeBadge } from "./ModeBadge";
-import { Power, Wifi, WifiOff, RefreshCw, Feather, Wind, Zap, Rocket, type LucideIcon } from "lucide-react";
+import { Power, Wifi, WifiOff, Wind } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const FAN_ICON: Record<FanSpeed, LucideIcon> = {
-  auto:   RefreshCw,
-  low:    Feather,
-  medium: Wind,
-  high:   Zap,
-  turbo:  Rocket,
+const FAN_BARS: Record<FanSpeed, number> = {
+  auto:   0,
+  low:    1,
+  medium: 2,
+  high:   3,
+  turbo:  4,
 };
+
+function FanSpeedIcon({ speed, active }: { speed: FanSpeed; active: boolean }) {
+  const bars = FAN_BARS[speed];
+  if (speed === "auto") {
+    return <Wind className={cn("w-[15px] h-[15px] shrink-0", active ? "text-primary" : "text-muted-foreground")} strokeWidth={2} />;
+  }
+  return (
+    <div className="flex items-end gap-px h-[15px]">
+      {[1, 2, 3, 4].map((b) => (
+        <div
+          key={b}
+          className={cn(
+            "w-[3px] rounded-sm",
+            b <= bars
+              ? active ? "bg-primary" : "bg-muted-foreground"
+              : "bg-muted"
+          )}
+          style={{ height: `${b * 3 + 2}px` }}
+        />
+      ))}
+    </div>
+  );
+}
 
 interface DeviceCardProps {
   device: AcDevice;
