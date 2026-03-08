@@ -1,16 +1,19 @@
 /**
  * EWPE Smart Bridge Service
  *
- * This abstraction layer communicates with the ewpe-smart-mqtt bridge
- * (https://github.com/stas-demydiuk/ewpe-smart-mqtt) running on your
- * local network via HTTP REST.
+ * Communicates with the ewpe-smart-mqtt bridge via HTTP REST.
+ * The bridge URL is read at call-time from localStorage so Settings
+ * changes take effect immediately without a reload.
+ *
+ * On Android native the bridge can run locally via Termux — no
+ * separate server required. Default localhost URL: http://localhost:3000
  *
  * To connect to real devices:
- *  1. Run ewpe-smart-mqtt on a device on your LAN
- *  2. Change BRIDGE_URL to the IP of that device (e.g. http://192.168.1.100:3000)
- *  3. The bridge will auto-discover EWPE Smart devices on the network
+ *  1. Install Termux on your Android device
+ *  2. Run the ewpe-smart-mqtt bridge inside Termux (see Settings → Bridge Setup)
+ *  3. Set Bridge URL to http://localhost:3000 in Settings and tap Save
  *
- * Current mode: MOCK (no real devices required)
+ * Current mode: MOCK when no bridge URL is configured.
  */
 
 export type AcMode = "cool" | "heat" | "dry" | "fan" | "auto";
@@ -111,27 +114,39 @@ const MOCK_DEVICES: AcDevice[] = [
 // In-memory state for mock
 let mockDevices = JSON.parse(JSON.stringify(MOCK_DEVICES)) as AcDevice[];
 
-// ====== Bridge config ======
-const BRIDGE_URL = ""; // Set to e.g. "http://192.168.1.100:3000" for real devices
-const USE_MOCK = !BRIDGE_URL;
+// ====== Runtime bridge config ======
+// Read from localStorage at each call so Settings changes are instant.
+function getBridgeUrl(): string {
+  return localStorage.getItem("ewpe_bridge_url")?.trim() ?? "";
+}
+
+function getPollInterval(): number {
+  return parseInt(localStorage.getItem("ewpe_poll_interval") ?? "5000", 10);
+}
+
+export { getPollInterval };
 
 // ====== API functions ======
 
 export async function fetchDevices(): Promise<AcDevice[]> {
-  if (USE_MOCK) {
+  const url = getBridgeUrl();
+  if (!url) {
     await delay(400);
     return JSON.parse(JSON.stringify(mockDevices));
   }
-  const res = await fetch(`${BRIDGE_URL}/devices`);
+  const res = await fetch(`${url}/devices`);
+  if (!res.ok) throw new Error(`Bridge error: ${res.status}`);
   return res.json();
 }
 
 export async function fetchDevice(id: string): Promise<AcDevice | undefined> {
-  if (USE_MOCK) {
+  const url = getBridgeUrl();
+  if (!url) {
     await delay(200);
     return JSON.parse(JSON.stringify(mockDevices.find((d) => d.id === id)));
   }
-  const res = await fetch(`${BRIDGE_URL}/devices/${id}`);
+  const res = await fetch(`${url}/devices/${id}`);
+  if (!res.ok) throw new Error(`Bridge error: ${res.status}`);
   return res.json();
 }
 
@@ -139,28 +154,49 @@ export async function setDeviceState(
   id: string,
   patch: Partial<AcState>
 ): Promise<AcDevice> {
-  if (USE_MOCK) {
+  const url = getBridgeUrl();
+  if (!url) {
     await delay(150);
     const device = mockDevices.find((d) => d.id === id);
     if (!device) throw new Error("Device not found");
     device.state = { ...device.state, ...patch };
     return JSON.parse(JSON.stringify(device));
   }
-  const res = await fetch(`${BRIDGE_URL}/devices/${id}/state`, {
+  const res = await fetch(`${url}/devices/${id}/state`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
   });
+  if (!res.ok) throw new Error(`Bridge error: ${res.status}`);
   return res.json();
 }
 
 export async function discoverDevices(): Promise<AcDevice[]> {
-  if (USE_MOCK) {
+  const url = getBridgeUrl();
+  if (!url) {
     await delay(1500);
     return JSON.parse(JSON.stringify(mockDevices));
   }
-  const res = await fetch(`${BRIDGE_URL}/scan`);
+  const res = await fetch(`${url}/scan`);
+  if (!res.ok) throw new Error(`Bridge error: ${res.status}`);
   return res.json();
+}
+
+/** Ping the bridge and return true if reachable */
+export async function pingBridge(): Promise<boolean> {
+  const url = getBridgeUrl();
+  if (!url) return false;
+  try {
+    const res = await fetch(`${url}/devices`, { signal: AbortSignal.timeout(3000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** True when a bridge URL has been configured */
+export function hasBridgeUrl(): boolean {
+  return getBridgeUrl().length > 0;
 }
 
 function delay(ms: number) {
