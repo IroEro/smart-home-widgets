@@ -59,8 +59,8 @@ export function DeviceCard({ device, onPress, onTogglePower }: DeviceCardProps) 
           </div>
         </div>
 
-        {/* Temperature + mode row */}
-        <div className="flex items-center justify-between mt-2">
+        {/* Temperature + info row */}
+        <div className="flex items-center justify-between mt-1.5">
           <div className="flex items-baseline gap-1">
             <span
               className={cn(
@@ -75,8 +75,11 @@ export function DeviceCard({ device, onPress, onTogglePower }: DeviceCardProps) 
               / {state.currentTemp}°
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <ModeBadge mode={state.mode} />
+            <span className="text-[11px] text-muted-foreground capitalize">
+              {state.fanSpeed === "auto" ? "Auto" : state.fanSpeed}
+            </span>
             {!online && (
               <span className="text-[11px] text-muted-foreground">Offline</span>
             )}
