@@ -29,7 +29,7 @@ jobs:
         run: npm run build
 
       - name: Add Android platform
-        run: npx cap add android
+        run: npx cap add android --skip-appid-validation
 
       - name: Sync Capacitor
         run: npx cap sync android
