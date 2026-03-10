@@ -41,7 +41,7 @@ let _udp: any = null;
 async function getUdp() {
   if (_udp) return _udp;
   // capacitor-udp registers UdpPlugin on the Capacitor.Plugins global
-  const mod = await import("capacitor-udp");
+  const mod = await import("@frontall/capacitor-udp");
   _udp = mod.UdpPlugin ?? mod.default?.UdpPlugin ?? mod;
   return _udp;
 }
