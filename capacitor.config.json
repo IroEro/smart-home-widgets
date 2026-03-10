@@ -2,9 +2,9 @@
   "appId": "app.lovable.ewpetest",
   "appName": "EWPE Smart",
   "webDir": "dist",
-  "bundledWebRuntime": false,
+  "bundledWebRuntime": true,
   "server": {
-    "url": "https://ewpetest.lovableproject.com?forceHideBadge=true",
+    "url": "https://0bf9232b-d9d3-4362-a904-26bc45f635e9.lovableproject.com?forceHideBadge=true",
     "cleartext": true
   },
   "android": {
