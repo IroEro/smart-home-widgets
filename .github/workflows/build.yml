@@ -26,10 +26,7 @@ jobs:
         run: npm install
 
       - name: Build web app
-        run: npm run build
-
-      - name: init Android platform
-        run: npx cap init 
+        run: npm run build 
 
       - name: Add Android platform
         run: npx cap add android
