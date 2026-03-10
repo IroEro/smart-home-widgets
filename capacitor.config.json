@@ -10,6 +10,7 @@
   "android": {
     "allowMixedContent": true,
     "backgroundColor": "#0d1117"
+    "namespace" : "app.lovable.ewpetest" 
   },
   "plugins": {
     "SplashScreen": {
