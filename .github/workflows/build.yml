@@ -37,9 +37,17 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
+      - name: Patch capacitor-udp namespace
+        run: |
+          FILE="node_modules/capacitor-udp/android/build.gradle"
+          if [ -f "$FILE" ] && ! grep -q "namespace" "$FILE"; then
+            sed -i '/^android {/a\    namespace "com.danielpryor.capacitorudp"' "$FILE"
+            echo "Patched capacitor-udp namespace"
+          fi
+
       - name: Build APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
