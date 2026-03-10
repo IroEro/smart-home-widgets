@@ -37,19 +37,6 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x android/gradlew
 
-      - name: Patch capacitor-udp
-        run: |
-          BUILD_GRADLE="node_modules/capacitor-udp/android/build.gradle"
-          if [ -f "$BUILD_GRADLE" ] && ! grep -q "namespace" "$BUILD_GRADLE"; then
-            sed -i '/^android {/a\    namespace "com.danielpryor.capacitorudp"' "$BUILD_GRADLE"
-            echo "Patched capacitor-udp namespace"
-          fi
-          MANIFEST="node_modules/capacitor-udp/android/src/main/AndroidManifest.xml"
-          if [ -f "$MANIFEST" ]; then
-            sed -i 's/ package="[^"]*"//' "$MANIFEST"
-            echo "Patched capacitor-udp AndroidManifest.xml package attribute"
-          fi
-
       - name: Build APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
