@@ -26,7 +26,17 @@ jobs:
         run: npm install --force
 
       - name: Build web app
-        run: npm run build 
+        run: npm run build
+
+      - name: Strip remote server URL from Capacitor config
+        run: |
+          node -e "
+            const fs = require('fs');
+            const cfg = JSON.parse(fs.readFileSync('capacitor.config.json', 'utf8'));
+            delete cfg.server;
+            fs.writeFileSync('capacitor.config.json', JSON.stringify(cfg, null, 2));
+            console.log('Removed server.url from capacitor.config.json');
+          "
 
       - name: Add Android platform
         run: npx cap add android
