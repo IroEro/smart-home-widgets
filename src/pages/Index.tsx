@@ -23,9 +23,14 @@ export default function Index() {
 
   async function handleScan() {
     setScanning(true);
-    const devs = await discoverDevices();
-    setDevices(devs);
-    setScanning(false);
+    try {
+      const devs = await discoverDevices();
+      setDevices(devs);
+    } catch (err) {
+      console.error("Scan failed:", err);
+    } finally {
+      setScanning(false);
+    }
   }
 
   async function handleTogglePower(e: React.MouseEvent, device: AcDevice) {
