@@ -110,6 +110,7 @@ let mockDevices = JSON.parse(JSON.stringify(MOCK_DEVICES)) as AcDevice[];
 // ── Runtime config ────────────────────────────────────────────────────────────
 
 function getBridgeUrl(): string {
+  // Return only what the user explicitly saved — never fall back to localhost
   return localStorage.getItem("ewpe_bridge_url")?.trim() ?? "";
 }
 
