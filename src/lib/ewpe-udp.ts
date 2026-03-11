@@ -50,8 +50,10 @@ async function getUdp() {
 
 /** Global broadcast – works on most networks */
 const BROADCAST = "255.255.255.255";
-/** Subnet broadcast fallback – some routers block 255.255.255.255 */
-const SUBNET_BROADCAST = "192.168.1.255";
+/** Subnet broadcast fallback, configurable in Settings */
+function getSubnetBroadcast(): string {
+  return localStorage.getItem("ewpe_subnet_broadcast")?.trim() || "192.168.1.255";
+}
 const SCAN_TIMEOUT_MS = 5000;
 const CMD_TIMEOUT_MS = 8000;
 /** Hard safety cap so the scan always terminates */
