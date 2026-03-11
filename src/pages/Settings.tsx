@@ -10,14 +10,15 @@ export default function Settings() {
   const navigate = useNavigate();
   const [bridgeUrl, setBridgeUrl] = useState("");
   const [pollInterval, setPollInterval] = useState("5000");
+  const [subnetBroadcast, setSubnetBroadcast] = useState("192.168.1.255");
   const [saved, setSaved] = useState(false);
   const [bridgeOpen, setBridgeOpen] = useState(false);
 
   useEffect(() => {
-    // Never default to localhost — keep empty so native uses direct UDP
     const storedUrl = localStorage.getItem("ewpe_bridge_url") ?? "";
     setBridgeUrl(storedUrl);
     setPollInterval(localStorage.getItem("ewpe_poll_interval") ?? "5000");
+    setSubnetBroadcast(localStorage.getItem("ewpe_subnet_broadcast") ?? "192.168.1.255");
   }, []);
 
   const mode = bridgeUrl.trim() ? "bridge" : isNative ? "udp" : "mock";
@@ -25,6 +26,7 @@ export default function Settings() {
   function handleSave() {
     localStorage.setItem("ewpe_bridge_url", bridgeUrl.trim());
     localStorage.setItem("ewpe_poll_interval", pollInterval);
+    localStorage.setItem("ewpe_subnet_broadcast", subnetBroadcast.trim());
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }
@@ -84,6 +86,27 @@ export default function Settings() {
               ? "Tap the refresh button on the home screen to scan your Wi-Fi network for EWPE / Gree AC units (UDP port 7000). The app handles encryption and device binding automatically."
               : "Install the app on Android to enable direct UDP discovery of EWPE / Gree AC units on your local network."}
           </p>
+          {isNative && (
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wide block mb-1.5">
+                Subnet Broadcast Address
+              </label>
+              <input
+                type="text"
+                value={subnetBroadcast}
+                onChange={(e) => setSubnetBroadcast(e.target.value)}
+                placeholder="192.168.1.255"
+                className={cn(
+                  "w-full bg-secondary/60 border border-border/50 rounded-xl px-4 py-3",
+                  "text-foreground placeholder:text-muted-foreground text-sm font-mono",
+                  "focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition"
+                )}
+              />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Change the last octet to <span className="font-mono">.255</span> for your subnet (e.g. <span className="font-mono">192.168.0.255</span>). The app broadcasts to both this address and <span className="font-mono">255.255.255.255</span>.
+              </p>
+            </div>
+          )}
         </section>
 
         {/* Poll interval */}

@@ -14,18 +14,28 @@ export default function Index() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const devs = await fetchDevices();
-    setDevices(devs);
-    setLoading(false);
+    try {
+      const devs = await fetchDevices();
+      setDevices(devs);
+    } catch (err) {
+      console.error("Load failed:", err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   async function handleScan() {
     setScanning(true);
-    const devs = await discoverDevices();
-    setDevices(devs);
-    setScanning(false);
+    try {
+      const devs = await discoverDevices();
+      setDevices(devs);
+    } catch (err) {
+      console.error("Scan failed:", err);
+    } finally {
+      setScanning(false);
+    }
   }
 
   async function handleTogglePower(e: React.MouseEvent, device: AcDevice) {

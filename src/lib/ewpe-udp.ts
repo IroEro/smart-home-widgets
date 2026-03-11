@@ -48,9 +48,16 @@ async function getUdp() {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
+/** Global broadcast – works on most networks */
 const BROADCAST = "255.255.255.255";
-const SCAN_TIMEOUT_MS = 3000;
-const CMD_TIMEOUT_MS = 5000;
+/** Subnet broadcast fallback, configurable in Settings */
+function getSubnetBroadcast(): string {
+  return localStorage.getItem("ewpe_subnet_broadcast")?.trim() || "192.168.1.255";
+}
+const SCAN_TIMEOUT_MS = 5000;
+const CMD_TIMEOUT_MS = 8000;
+/** Hard safety cap so the scan always terminates */
+const MAX_SCAN_MS = 10000;
 
 // ── Session key store (in-memory, persisted across calls) ────────────────────
 
@@ -90,27 +97,27 @@ async function withSocket<T>(
 }
 
 /**
- * Send a packet and collect all responses until timeout.
- * Returns array of { data, remoteAddress }.
+ * Send scan packets to multiple broadcast addresses and collect all responses.
+ * Sends to both 255.255.255.255 and 192.168.1.255 to handle routers that
+ * block the global broadcast address.
  */
 async function sendAndCollect(
-  address: string,
+  addresses: string[],
   packet: string,
   timeoutMs: number,
-  broadcast = false
 ): Promise<Array<{ data: Record<string, unknown>; remoteAddress: string; rawOuter: Record<string, unknown> }>> {
   return withSocket(async (socketId, udp) => {
     await udp.bind({ socketId, address: "0.0.0.0", port: DEVICE_PORT });
-    if (broadcast) await udp.setBroadcast({ socketId, enabled: true });
+    await udp.setBroadcast({ socketId, enabled: true });
 
     const results: Array<{ data: Record<string, unknown>; remoteAddress: string; rawOuter: Record<string, unknown> }> = [];
+    const seenMacs = new Set<string>();
 
     const handle = await udp.addListener("receive", (event: { socketId: number; buffer: string; remoteAddress: string }) => {
       if (event.socketId !== socketId) return;
       try {
         const str = decodeBuffer(event.buffer);
         const outer = JSON.parse(str) as Record<string, unknown>;
-        // Scan responses have no pack; bind/status/cmd have encrypted pack
         let data: Record<string, unknown>;
         if (outer.pack) {
           const key = deviceKeys.get(outer.cid as string) ?? GENERIC_KEY;
@@ -118,13 +125,32 @@ async function sendAndCollect(
         } else {
           data = outer;
         }
+        // Deduplicate by MAC so dual-broadcast doesn't double-add
+        const mac = (data.mac ?? outer.mac ?? event.remoteAddress) as string;
+        if (seenMacs.has(mac)) return;
+        seenMacs.add(mac);
         results.push({ data, remoteAddress: event.remoteAddress, rawOuter: outer });
-      } catch { /* malformed packet */ }
+        console.log("[EWPE] scan response from", event.remoteAddress, data);
+      } catch (e) {
+        console.warn("[EWPE] malformed scan packet", e);
+      }
     });
 
-    await udp.send({ socketId, address, port: DEVICE_PORT, buffer: encodeBuffer(packet) });
+    // Send to every broadcast address; errors on one don't abort the others
+    for (const addr of addresses) {
+      try {
+        await udp.send({ socketId, address: addr, port: DEVICE_PORT, buffer: encodeBuffer(packet) });
+        console.log("[EWPE] scan sent to", addr);
+      } catch (e) {
+        console.warn("[EWPE] send to", addr, "failed:", e);
+      }
+    }
 
-    await new Promise((r) => setTimeout(r, timeoutMs));
+    // Race: wait for timeout OR hard cap
+    await Promise.race([
+      new Promise((r) => setTimeout(r, timeoutMs)),
+      new Promise((r) => setTimeout(r, MAX_SCAN_MS)),
+    ]);
     handle.remove();
 
     return results;
@@ -188,10 +214,9 @@ export function isDirectUdpAvailable(): boolean {
 /** Scan the LAN for EWPE Smart devices */
 export async function udpScanDevices(): Promise<AcDevice[]> {
   const results = await sendAndCollect(
-    BROADCAST,
+    [BROADCAST, getSubnetBroadcast()],
     buildScanPacket(),
     SCAN_TIMEOUT_MS,
-    true
   );
 
   const devices: AcDevice[] = [];
