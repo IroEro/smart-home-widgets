@@ -214,7 +214,7 @@ export function isDirectUdpAvailable(): boolean {
 /** Scan the LAN for EWPE Smart devices */
 export async function udpScanDevices(): Promise<AcDevice[]> {
   const results = await sendAndCollect(
-    [BROADCAST, SUBNET_BROADCAST],
+    [BROADCAST, getSubnetBroadcast()],
     buildScanPacket(),
     SCAN_TIMEOUT_MS,
   );
