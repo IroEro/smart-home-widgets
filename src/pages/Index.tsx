@@ -14,9 +14,14 @@ export default function Index() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const devs = await fetchDevices();
-    setDevices(devs);
-    setLoading(false);
+    try {
+      const devs = await fetchDevices();
+      setDevices(devs);
+    } catch (err) {
+      console.error("Load failed:", err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
