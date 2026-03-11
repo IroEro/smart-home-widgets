@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Server, Wifi, Info, Terminal, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Server, Wifi, Info, Radio, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Capacitor } from "@capacitor/core";
 
-const DEFAULT_LOCAL = "http://localhost:3000";
 const isNative = Capacitor.isNativePlatform();
 
 export default function Settings() {
@@ -12,17 +11,19 @@ export default function Settings() {
   const [bridgeUrl, setBridgeUrl] = useState("");
   const [pollInterval, setPollInterval] = useState("5000");
   const [saved, setSaved] = useState(false);
-  const [termuxOpen, setTermuxOpen] = useState(false);
+  const [bridgeOpen, setBridgeOpen] = useState(false);
 
-  // Load saved values; on native Android default to localhost
   useEffect(() => {
+    // Never default to localhost — keep empty so native uses direct UDP
     const storedUrl = localStorage.getItem("ewpe_bridge_url") ?? "";
-    setBridgeUrl(storedUrl || (isNative ? DEFAULT_LOCAL : ""));
+    setBridgeUrl(storedUrl);
     setPollInterval(localStorage.getItem("ewpe_poll_interval") ?? "5000");
   }, []);
 
+  const mode = bridgeUrl.trim() ? "bridge" : isNative ? "udp" : "mock";
+
   function handleSave() {
-    localStorage.setItem("ewpe_bridge_url", bridgeUrl);
+    localStorage.setItem("ewpe_bridge_url", bridgeUrl.trim());
     localStorage.setItem("ewpe_poll_interval", pollInterval);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
@@ -43,58 +44,57 @@ export default function Settings() {
 
       <div className="px-5 space-y-6">
 
-        {/* Native Android notice */}
-        {isNative && (
-          <div className="flex items-start gap-3 bg-primary/10 border border-primary/20 rounded-xl p-4">
-            <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-            <p className="text-sm text-foreground/80 leading-relaxed">
-              Running as native Android app. You can run the bridge directly on this device via Termux — no separate server needed.
+        {/* Active mode banner */}
+        <div className={cn(
+          "flex items-start gap-3 rounded-xl p-4 border",
+          mode === "udp"    && "bg-primary/10 border-primary/20",
+          mode === "bridge" && "bg-yellow-500/10 border-yellow-500/20",
+          mode === "mock"   && "bg-secondary/60 border-border/30",
+        )}>
+          {mode === "udp" && <Radio className="w-4 h-4 text-primary mt-0.5 shrink-0" />}
+          {mode === "bridge" && <Server className="w-4 h-4 text-yellow-400 mt-0.5 shrink-0" />}
+          {mode === "mock" && <Wifi className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />}
+          <div>
+            <p className={cn(
+              "text-sm font-semibold",
+              mode === "udp"    && "text-primary",
+              mode === "bridge" && "text-yellow-400",
+              mode === "mock"   && "text-muted-foreground",
+            )}>
+              {mode === "udp"    && "Direct UDP — no bridge needed"}
+              {mode === "bridge" && "HTTP Bridge mode"}
+              {mode === "mock"   && "Demo mode (mock data)"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+              {mode === "udp"    && "The app communicates directly with your AC units over your local Wi-Fi network."}
+              {mode === "bridge" && "All commands are routed through the bridge URL below."}
+              {mode === "mock"   && "No real devices — running in browser or no bridge configured."}
             </p>
           </div>
-        )}
+        </div>
 
-        {/* Bridge config */}
+        {/* Network Discovery */}
+        <section className="glass rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Wifi className="w-4 h-4 text-primary" />
+            <h2 className="font-semibold text-foreground">Network Discovery</h2>
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {isNative
+              ? "Tap the refresh button on the home screen to scan your Wi-Fi network for EWPE / Gree AC units (UDP port 7000). The app handles encryption and device binding automatically."
+              : "Install the app on Android to enable direct UDP discovery of EWPE / Gree AC units on your local network."}
+          </p>
+        </section>
+
+        {/* Poll interval */}
         <section className="glass rounded-2xl p-5 space-y-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Server className="w-4 h-4 text-primary" />
-            <h2 className="font-semibold text-foreground">Bridge Connection</h2>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-primary" />
+            <h2 className="font-semibold text-foreground">Polling</h2>
           </div>
-
           <div>
             <label className="text-xs text-muted-foreground uppercase tracking-wide block mb-1.5">
-              Bridge URL
-            </label>
-            <input
-              type="text"
-              value={bridgeUrl}
-              onChange={(e) => setBridgeUrl(e.target.value)}
-              placeholder={isNative ? DEFAULT_LOCAL : "http://192.168.1.100:3000"}
-              className={cn(
-                "w-full bg-secondary/60 border border-border/50 rounded-xl px-4 py-3",
-                "text-foreground placeholder:text-muted-foreground text-sm font-mono",
-                "focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition"
-              )}
-            />
-            <p className="text-xs text-muted-foreground mt-1.5">
-              {isNative
-                ? "Use http://localhost:3000 if the bridge is running in Termux on this device"
-                : "IP address of your ewpe-smart-mqtt bridge on your local network"}
-            </p>
-          </div>
-
-          {isNative && (
-            <button
-              type="button"
-              onClick={() => setBridgeUrl(DEFAULT_LOCAL)}
-              className="text-xs text-primary underline underline-offset-2"
-            >
-              Use localhost (Termux on this device)
-            </button>
-          )}
-
-          <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-wide block mb-1.5">
-              Poll Interval (ms)
+              Status Poll Interval (ms)
             </label>
             <input
               type="number"
@@ -109,80 +109,72 @@ export default function Settings() {
           </div>
         </section>
 
-        {/* Termux setup — collapsible, shown on native; always available */}
+        {/* Optional Bridge — collapsible */}
         <section className="glass rounded-2xl overflow-hidden">
           <button
-            onClick={() => setTermuxOpen((o) => !o)}
+            onClick={() => setBridgeOpen((o) => !o)}
             className="w-full flex items-center justify-between px-5 py-4 text-left"
           >
             <div className="flex items-center gap-2">
-              <Terminal className="w-4 h-4 text-primary" />
-              <h2 className="font-semibold text-foreground">
-                Run Bridge on This Device (Termux)
-              </h2>
+              <Server className="w-4 h-4 text-muted-foreground" />
+              <h2 className="font-semibold text-foreground">Optional: HTTP Bridge</h2>
             </div>
-            {termuxOpen
+            {bridgeOpen
               ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
               : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
           </button>
 
-          {termuxOpen && (
-            <div className="px-5 pb-5 space-y-3 text-sm text-muted-foreground border-t border-border/30">
-              <p className="pt-3">
-                Run the EWPE Smart bridge directly on your Android phone using Termux — no Raspberry Pi or home server needed.
+          {bridgeOpen && (
+            <div className="px-5 pb-5 space-y-4 border-t border-border/30">
+              <p className="pt-3 text-sm text-muted-foreground">
+                Leave blank to use direct UDP (recommended for Android). Only fill this in if you want to route through an external <span className="font-mono text-foreground/70">ewpe-smart-mqtt</span> bridge.
               </p>
-              <p className="font-medium text-foreground">1. Install Termux</p>
-              <p>Download Termux from F-Droid (recommended) or Google Play.</p>
-
-              <p className="font-medium text-foreground">2. Install Node.js in Termux</p>
-              <pre className="bg-background/60 rounded-lg p-3 text-xs font-mono text-foreground/80 overflow-x-auto whitespace-pre-wrap">
-{`pkg update && pkg install -y nodejs
-node --version`}
-              </pre>
-
-              <p className="font-medium text-foreground">3. Install and run the bridge</p>
-              <pre className="bg-background/60 rounded-lg p-3 text-xs font-mono text-foreground/80 overflow-x-auto whitespace-pre-wrap">
-{`npm install -g ewpe-smart-mqtt
-NETWORK=192.168.1.255 ewpe-smart-mqtt`}
-              </pre>
-              <p className="text-xs">Replace <span className="font-mono text-foreground/80">192.168.1.255</span> with your WiFi broadcast address (usually your subnet ending in .255).</p>
-
-              <p className="font-medium text-foreground">4. Keep Termux running in background</p>
-              <p>Use Termux's wake-lock notification to prevent Android from killing it. Tap the notification → <em>Acquire wakelock</em>.</p>
-
-              <p className="font-medium text-foreground">5. Set bridge URL above</p>
-              <p>Tap <em>Use localhost</em> above, then Save Settings.</p>
+              <div>
+                <label className="text-xs text-muted-foreground uppercase tracking-wide block mb-1.5">
+                  Bridge URL
+                </label>
+                <input
+                  type="text"
+                  value={bridgeUrl}
+                  onChange={(e) => setBridgeUrl(e.target.value)}
+                  placeholder="http://192.168.1.100:3000"
+                  className={cn(
+                    "w-full bg-secondary/60 border border-border/50 rounded-xl px-4 py-3",
+                    "text-foreground placeholder:text-muted-foreground text-sm font-mono",
+                    "focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition"
+                  )}
+                />
+              </div>
+              {bridgeUrl.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setBridgeUrl("")}
+                  className="text-xs text-destructive underline underline-offset-2"
+                >
+                  Clear (switch back to direct UDP)
+                </button>
+              )}
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p>Run on a Raspberry Pi, NAS, or Docker host on your LAN:</p>
+                <pre className="bg-background/60 rounded-lg p-3 text-xs font-mono text-foreground/80 overflow-x-auto whitespace-pre-wrap">
+{`docker run -it --network="host" \\
+  -e "NETWORK=192.168.1.255" \\
+  demydiuk/ewpe-smart-mqtt`}
+                </pre>
+              </div>
             </div>
           )}
         </section>
 
-        {/* Network info */}
+        {/* About */}
         <section className="glass rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Wifi className="w-4 h-4 text-primary" />
-            <h2 className="font-semibold text-foreground">Network Discovery</h2>
+          <div className="flex items-center gap-2 mb-2">
+            <Info className="w-4 h-4 text-primary" />
+            <h2 className="font-semibold text-foreground">About</h2>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            EWPE Smart devices are discovered via UDP broadcast on your local network (port 7000).
-            The bridge handles device communication — you only need to configure its HTTP URL above.
+            EWPE Smart controls Gree / EWPE air conditioners directly over your local Wi-Fi using the native UDP protocol — no cloud, no subscription.
           </p>
-        </section>
-
-        {/* Remote bridge setup guide */}
-        <section className="glass rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Info className="w-4 h-4 text-primary" />
-            <h2 className="font-semibold text-foreground">Remote Bridge Setup</h2>
-          </div>
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <p>Run on a Raspberry Pi, NAS, or any Docker host on your LAN:</p>
-            <pre className="bg-background/60 rounded-lg p-3 text-xs font-mono text-foreground/80 overflow-x-auto whitespace-pre-wrap">
-{`docker run -it --network="host" \\
-  -e "NETWORK=192.168.1.255" \\
-  demydiuk/ewpe-smart-mqtt`}
-            </pre>
-            <p>Then enter that device's IP as the Bridge URL above.</p>
-          </div>
         </section>
 
         {/* Save button */}
