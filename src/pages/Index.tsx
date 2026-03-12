@@ -2,15 +2,19 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchDevices, setDeviceState, AcDevice, discoverDevices } from "@/lib/ewpe-service";
 import { DeviceCard } from "@/components/DeviceCard";
-import { Wifi, RefreshCw, Settings, Thermometer } from "lucide-react";
+import { Wifi, RefreshCw, Settings, Thermometer, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import bgHero from "@/assets/bg-hero.jpg";
+import { Capacitor } from "@capacitor/core";
 
 export default function Index() {
   const navigate = useNavigate();
   const [devices, setDevices] = useState<AcDevice[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [scanLog, setScanLog] = useState<Array<{ ts: number; level: string; msg: string }>>([]);
+  const [showLog, setShowLog] = useState(false);
+  const isNative = Capacitor.isNativePlatform();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -28,9 +32,19 @@ export default function Index() {
 
   async function handleScan() {
     setScanning(true);
+    setScanLog([]);
+    setShowLog(false);
     try {
       const devs = await discoverDevices();
       setDevices(devs);
+      // Pull the log after scan completes (native only)
+      if (isNative) {
+        try {
+          const { getScanLog } = await import("@/lib/ewpe-udp");
+          setScanLog(getScanLog());
+          if (devs.length === 0) setShowLog(true); // auto-open log when nothing found
+        } catch { /* ignore */ }
+      }
     } catch (err) {
       console.error("Scan failed:", err);
     } finally {
@@ -59,7 +73,6 @@ export default function Index() {
           backgroundPosition: "center top",
         }}
       >
-        {/* Overlay */}
         <div className="absolute inset-0 bg-background/75 backdrop-blur-sm" />
 
         <div className="relative z-10">
@@ -133,14 +146,15 @@ export default function Index() {
             <div>
               <p className="text-foreground font-medium">No devices found</p>
               <p className="text-muted-foreground text-sm mt-1">
-                Make sure your EWPE Smart devices are on the same network
+                Make sure your EWPE Smart devices are on the same Wi-Fi network
               </p>
             </div>
             <button
               onClick={handleScan}
+              disabled={scanning}
               className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium active:scale-95 transition"
             >
-              Scan Network
+              {scanning ? "Scanning…" : "Scan Network"}
             </button>
           </div>
         ) : (
@@ -153,6 +167,38 @@ export default function Index() {
                 onTogglePower={(e) => handleTogglePower(e, device)}
               />
             ))}
+          </div>
+        )}
+
+        {/* Scan debug log — only shown on native after a scan */}
+        {isNative && scanLog.length > 0 && (
+          <div className="mt-4 rounded-2xl border border-border/40 overflow-hidden">
+            <button
+              onClick={() => setShowLog((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-secondary/30 text-left"
+            >
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Scan Log ({scanLog.length} entries)
+              </span>
+              {showLog
+                ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
+                : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+            </button>
+            {showLog && (
+              <div className="bg-background/60 px-4 py-3 max-h-64 overflow-y-auto space-y-1">
+                {scanLog.map((entry, i) => (
+                  <p key={i} className={cn(
+                    "text-[11px] font-mono leading-relaxed",
+                    entry.level === "error" && "text-destructive",
+                    entry.level === "warn"  && "text-yellow-400",
+                    entry.level === "info"  && "text-muted-foreground",
+                  )}>
+                    <span className="opacity-50">{new Date(entry.ts).toLocaleTimeString()} </span>
+                    {entry.msg}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
