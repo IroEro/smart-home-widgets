@@ -122,8 +122,19 @@ async function sendAndCollect(
   timeoutMs: number,
 ): Promise<Array<{ data: Record<string, unknown>; remoteAddress: string; rawOuter: Record<string, unknown> }>> {
   return withSocket(async (socketId, udp) => {
-    await udp.bind({ socketId, address: "0.0.0.0", port: DEVICE_PORT });
-    await udp.setBroadcast({ socketId, enabled: true });
+    try {
+      await udp.bind({ socketId, address: "0.0.0.0", port: DEVICE_PORT });
+      log("info", `Socket ${socketId} bound to 0.0.0.0:${DEVICE_PORT}`);
+    } catch (e) {
+      log("error", `Bind failed: ${e}`);
+      throw e;
+    }
+    try {
+      await udp.setBroadcast({ socketId, enabled: true });
+      log("info", "Broadcast enabled");
+    } catch (e) {
+      log("warn", `setBroadcast failed (may still work): ${e}`);
+    }
 
     const results: Array<{ data: Record<string, unknown>; remoteAddress: string; rawOuter: Record<string, unknown> }> = [];
     const seenMacs = new Set<string>();
@@ -140,33 +151,31 @@ async function sendAndCollect(
         } else {
           data = outer;
         }
-        // Deduplicate by MAC so dual-broadcast doesn't double-add
         const mac = (data.mac ?? outer.mac ?? event.remoteAddress) as string;
         if (seenMacs.has(mac)) return;
         seenMacs.add(mac);
         results.push({ data, remoteAddress: event.remoteAddress, rawOuter: outer });
-        console.log("[EWPE] scan response from", event.remoteAddress, data);
+        log("info", `Response from ${event.remoteAddress} mac=${mac}`);
       } catch (e) {
-        console.warn("[EWPE] malformed scan packet", e);
+        log("warn", `Malformed packet from ${event.remoteAddress}: ${e}`);
       }
     });
 
-    // Send to every broadcast address; errors on one don't abort the others
     for (const addr of addresses) {
       try {
         await udp.send({ socketId, address: addr, port: DEVICE_PORT, buffer: encodeBuffer(packet) });
-        console.log("[EWPE] scan sent to", addr);
+        log("info", `Scan packet sent to ${addr}:${DEVICE_PORT}`);
       } catch (e) {
-        console.warn("[EWPE] send to", addr, "failed:", e);
+        log("warn", `Send to ${addr} failed: ${e}`);
       }
     }
 
-    // Race: wait for timeout OR hard cap
     await Promise.race([
       new Promise((r) => setTimeout(r, timeoutMs)),
       new Promise((r) => setTimeout(r, MAX_SCAN_MS)),
     ]);
     handle.remove();
+    log("info", `Scan complete — ${results.length} raw response(s) collected`);
 
     return results;
   });
