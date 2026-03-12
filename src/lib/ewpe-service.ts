@@ -146,10 +146,8 @@ export async function fetchDevices(): Promise<AcDevice[]> {
   }
 
   if (mode === "udp") {
-    const { udpScanDevices } = await import("./ewpe-udp");
-    const devices = await udpScanDevices();
-    udpDeviceCache = devices;
-    return devices;
+    // Return cached devices on load — only discoverDevices() triggers a fresh scan
+    return JSON.parse(JSON.stringify(udpDeviceCache));
   }
 
   // mock
