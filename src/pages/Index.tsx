@@ -170,8 +170,8 @@ export default function Index() {
           </div>
         )}
 
-        {/* Scan debug log — only shown on native after a scan */}
-        {isNative && scanLog.length > 0 && (
+        {/* Scan debug log — shown after any scan */}
+        {scanLog.length > 0 && (
           <div className="mt-4 rounded-2xl border border-border/40 overflow-hidden">
             <button
               onClick={() => setShowLog((v) => !v)}
