@@ -188,7 +188,7 @@ export default function Index() {
                   <p key={i} className={cn(
                     "text-[11px] font-mono leading-relaxed",
                     entry.level === "error" && "text-destructive",
-                    entry.level === "warn"  && "text-[hsl(var(--warning))] opacity-90",
+                    entry.level === "warn"  && "text-warning",
                     entry.level === "info"  && "text-foreground/50",
                   )}>
                     <span className="opacity-50">{new Date(entry.ts).toLocaleTimeString()} </span>
