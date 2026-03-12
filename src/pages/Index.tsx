@@ -191,7 +191,7 @@ export default function Index() {
                     "text-[11px] font-mono leading-relaxed",
                     entry.level === "error" && "text-destructive",
                     entry.level === "warn"  && "text-yellow-400",
-                    entry.level === "info"  && "text-muted-foreground",
+                    entry.level === "info"  && "text-foreground/50",
                   )}>
                     <span className="opacity-50">{new Date(entry.ts).toLocaleTimeString()} </span>
                     {entry.msg}
