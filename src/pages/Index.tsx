@@ -5,7 +5,6 @@ import { DeviceCard } from "@/components/DeviceCard";
 import { Wifi, RefreshCw, Settings, Thermometer, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import bgHero from "@/assets/bg-hero.jpg";
-import { Capacitor } from "@capacitor/core";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -14,7 +13,6 @@ export default function Index() {
   const [scanning, setScanning] = useState(false);
   const [scanLog, setScanLog] = useState<Array<{ ts: number; level: string; msg: string }>>([]);
   const [showLog, setShowLog] = useState(false);
-  const isNative = Capacitor.isNativePlatform();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -37,17 +35,17 @@ export default function Index() {
     try {
       const devs = await discoverDevices();
       setDevices(devs);
-      // Pull the log after scan completes (native only)
-      if (isNative) {
-        try {
-          const { getScanLog } = await import("@/lib/ewpe-udp");
-          setScanLog(getScanLog());
-          if (devs.length === 0) setShowLog(true); // auto-open log when nothing found
-        } catch { /* ignore */ }
-      }
     } catch (err) {
       console.error("Scan failed:", err);
     } finally {
+      // Always pull the scan log — it's populated in ewpe-udp on native,
+      // and is a no-op (empty array) in mock/bridge mode.
+      try {
+        const { getScanLog } = await import("@/lib/ewpe-udp");
+        const entries = getScanLog();
+        setScanLog(entries);
+        setShowLog(true); // always open the log after a scan
+      } catch { /* ignore on web */ }
       setScanning(false);
     }
   }
@@ -170,8 +168,8 @@ export default function Index() {
           </div>
         )}
 
-        {/* Scan debug log — only shown on native after a scan */}
-        {isNative && scanLog.length > 0 && (
+        {/* Scan debug log — shown after any scan */}
+        {scanLog.length > 0 && (
           <div className="mt-4 rounded-2xl border border-border/40 overflow-hidden">
             <button
               onClick={() => setShowLog((v) => !v)}
@@ -190,7 +188,7 @@ export default function Index() {
                   <p key={i} className={cn(
                     "text-[11px] font-mono leading-relaxed",
                     entry.level === "error" && "text-destructive",
-                    entry.level === "warn"  && "text-yellow-400",
+                    entry.level === "warn"  && "text-warning",
                     entry.level === "info"  && "text-foreground/50",
                   )}>
                     <span className="opacity-50">{new Date(entry.ts).toLocaleTimeString()} </span>
