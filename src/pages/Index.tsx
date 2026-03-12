@@ -37,17 +37,17 @@ export default function Index() {
     try {
       const devs = await discoverDevices();
       setDevices(devs);
-      // Pull the log after scan completes (native only)
-      if (isNative) {
-        try {
-          const { getScanLog } = await import("@/lib/ewpe-udp");
-          setScanLog(getScanLog());
-          if (devs.length === 0) setShowLog(true); // auto-open log when nothing found
-        } catch { /* ignore */ }
-      }
     } catch (err) {
       console.error("Scan failed:", err);
     } finally {
+      // Always pull the scan log — it's populated in ewpe-udp on native,
+      // and is a no-op (empty array) in mock/bridge mode.
+      try {
+        const { getScanLog } = await import("@/lib/ewpe-udp");
+        const entries = getScanLog();
+        setScanLog(entries);
+        setShowLog(true); // always open the log after a scan
+      } catch { /* ignore on web */ }
       setScanning(false);
     }
   }
