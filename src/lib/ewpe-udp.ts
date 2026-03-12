@@ -237,33 +237,48 @@ export function isDirectUdpAvailable(): boolean {
 
 /** Scan the LAN for EWPE Smart devices */
 export async function udpScanDevices(): Promise<AcDevice[]> {
-  const results = await sendAndCollect(
-    [BROADCAST, getSubnetBroadcast()],
-    buildScanPacket(),
-    SCAN_TIMEOUT_MS,
-  );
+  clearScanLog();
+  log("info", `Starting scan → broadcasts: [${BROADCAST}, ${getSubnetBroadcast()}]`);
 
+  let results: Awaited<ReturnType<typeof sendAndCollect>>;
+  try {
+    results = await sendAndCollect(
+      [BROADCAST, getSubnetBroadcast()],
+      buildScanPacket(),
+      SCAN_TIMEOUT_MS,
+    );
+  } catch (e) {
+    log("error", `sendAndCollect threw: ${e}`);
+    return [];
+  }
+
+  log("info", `Found ${results.length} device(s) in scan`);
   const devices: AcDevice[] = [];
 
   for (const { data, remoteAddress } of results) {
-    if (!data.mac) continue;
+    if (!data.mac) {
+      log("warn", `Response from ${remoteAddress} has no MAC — skipping`);
+      continue;
+    }
     const mac = data.mac as string;
+    log("info", `Binding ${mac} at ${remoteAddress}…`);
 
-    // Bind to get the session key
     try {
       await udpBindDevice(mac, remoteAddress);
-    } catch {
-      continue; // skip devices we can't bind
+    } catch (e) {
+      log("error", `Bind failed for ${mac}: ${e}`);
+      continue;
     }
 
     const key = deviceKeys.get(mac);
-    if (!key) continue;
+    if (!key) { log("error", `No key after bind for ${mac}`); continue; }
 
-    // Fetch initial status
     let state: AcState;
     try {
       state = await udpGetDeviceState(mac, remoteAddress, key);
-    } catch {
+      log("info", `State fetched for ${mac}: power=${state.power} temp=${state.targetTemp}`);
+    } catch (e) {
+      log("warn", `State fetch failed for ${mac}: ${e} — using defaults`);
       state = defaultState();
     }
 
@@ -276,8 +291,10 @@ export async function udpScanDevices(): Promise<AcDevice[]> {
       online: true,
       state,
     });
+    log("info", `Device added: ${mac} (${remoteAddress})`);
   }
 
+  log("info", `Scan done — ${devices.length} device(s) ready`);
   return devices;
 }
 
