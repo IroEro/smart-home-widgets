@@ -63,6 +63,21 @@ const MAX_SCAN_MS = 10000;
 
 const deviceKeys = new Map<string, string>(); // mac → session key
 
+// ── Debug log (ring buffer, max 100 entries) ──────────────────────────────────
+
+export type ScanLogEntry = { ts: number; level: "info" | "warn" | "error"; msg: string };
+const _scanLog: ScanLogEntry[] = [];
+function log(level: ScanLogEntry["level"], msg: string) {
+  const entry = { ts: Date.now(), level, msg };
+  _scanLog.push(entry);
+  if (_scanLog.length > 100) _scanLog.shift();
+  if (level === "error") console.error("[EWPE]", msg);
+  else if (level === "warn") console.warn("[EWPE]", msg);
+  else console.log("[EWPE]", msg);
+}
+export function getScanLog(): ScanLogEntry[] { return [..._scanLog]; }
+export function clearScanLog() { _scanLog.length = 0; }
+
 // ── Buffer utils ─────────────────────────────────────────────────────────────
 
 /** Encode UTF-8 string → base64 for capacitor-udp send */
