@@ -5,7 +5,6 @@ import { DeviceCard } from "@/components/DeviceCard";
 import { Wifi, RefreshCw, Settings, Thermometer, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import bgHero from "@/assets/bg-hero.jpg";
-import { Capacitor } from "@capacitor/core";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -14,7 +13,6 @@ export default function Index() {
   const [scanning, setScanning] = useState(false);
   const [scanLog, setScanLog] = useState<Array<{ ts: number; level: string; msg: string }>>([]);
   const [showLog, setShowLog] = useState(false);
-  const isNative = Capacitor.isNativePlatform();
 
   const load = useCallback(async () => {
     setLoading(true);
