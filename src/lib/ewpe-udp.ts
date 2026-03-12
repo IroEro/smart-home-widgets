@@ -63,6 +63,21 @@ const MAX_SCAN_MS = 10000;
 
 const deviceKeys = new Map<string, string>(); // mac → session key
 
+// ── Debug log (ring buffer, max 100 entries) ──────────────────────────────────
+
+export type ScanLogEntry = { ts: number; level: "info" | "warn" | "error"; msg: string };
+const _scanLog: ScanLogEntry[] = [];
+function log(level: ScanLogEntry["level"], msg: string) {
+  const entry = { ts: Date.now(), level, msg };
+  _scanLog.push(entry);
+  if (_scanLog.length > 100) _scanLog.shift();
+  if (level === "error") console.error("[EWPE]", msg);
+  else if (level === "warn") console.warn("[EWPE]", msg);
+  else console.log("[EWPE]", msg);
+}
+export function getScanLog(): ScanLogEntry[] { return [..._scanLog]; }
+export function clearScanLog() { _scanLog.length = 0; }
+
 // ── Buffer utils ─────────────────────────────────────────────────────────────
 
 /** Encode UTF-8 string → base64 for capacitor-udp send */
@@ -107,8 +122,19 @@ async function sendAndCollect(
   timeoutMs: number,
 ): Promise<Array<{ data: Record<string, unknown>; remoteAddress: string; rawOuter: Record<string, unknown> }>> {
   return withSocket(async (socketId, udp) => {
-    await udp.bind({ socketId, address: "0.0.0.0", port: DEVICE_PORT });
-    await udp.setBroadcast({ socketId, enabled: true });
+    try {
+      await udp.bind({ socketId, address: "0.0.0.0", port: DEVICE_PORT });
+      log("info", `Socket ${socketId} bound to 0.0.0.0:${DEVICE_PORT}`);
+    } catch (e) {
+      log("error", `Bind failed: ${e}`);
+      throw e;
+    }
+    try {
+      await udp.setBroadcast({ socketId, enabled: true });
+      log("info", "Broadcast enabled");
+    } catch (e) {
+      log("warn", `setBroadcast failed (may still work): ${e}`);
+    }
 
     const results: Array<{ data: Record<string, unknown>; remoteAddress: string; rawOuter: Record<string, unknown> }> = [];
     const seenMacs = new Set<string>();
@@ -125,33 +151,31 @@ async function sendAndCollect(
         } else {
           data = outer;
         }
-        // Deduplicate by MAC so dual-broadcast doesn't double-add
         const mac = (data.mac ?? outer.mac ?? event.remoteAddress) as string;
         if (seenMacs.has(mac)) return;
         seenMacs.add(mac);
         results.push({ data, remoteAddress: event.remoteAddress, rawOuter: outer });
-        console.log("[EWPE] scan response from", event.remoteAddress, data);
+        log("info", `Response from ${event.remoteAddress} mac=${mac}`);
       } catch (e) {
-        console.warn("[EWPE] malformed scan packet", e);
+        log("warn", `Malformed packet from ${event.remoteAddress}: ${e}`);
       }
     });
 
-    // Send to every broadcast address; errors on one don't abort the others
     for (const addr of addresses) {
       try {
         await udp.send({ socketId, address: addr, port: DEVICE_PORT, buffer: encodeBuffer(packet) });
-        console.log("[EWPE] scan sent to", addr);
+        log("info", `Scan packet sent to ${addr}:${DEVICE_PORT}`);
       } catch (e) {
-        console.warn("[EWPE] send to", addr, "failed:", e);
+        log("warn", `Send to ${addr} failed: ${e}`);
       }
     }
 
-    // Race: wait for timeout OR hard cap
     await Promise.race([
       new Promise((r) => setTimeout(r, timeoutMs)),
       new Promise((r) => setTimeout(r, MAX_SCAN_MS)),
     ]);
     handle.remove();
+    log("info", `Scan complete — ${results.length} raw response(s) collected`);
 
     return results;
   });
@@ -213,33 +237,48 @@ export function isDirectUdpAvailable(): boolean {
 
 /** Scan the LAN for EWPE Smart devices */
 export async function udpScanDevices(): Promise<AcDevice[]> {
-  const results = await sendAndCollect(
-    [BROADCAST, getSubnetBroadcast()],
-    buildScanPacket(),
-    SCAN_TIMEOUT_MS,
-  );
+  clearScanLog();
+  log("info", `Starting scan → broadcasts: [${BROADCAST}, ${getSubnetBroadcast()}]`);
 
+  let results: Awaited<ReturnType<typeof sendAndCollect>>;
+  try {
+    results = await sendAndCollect(
+      [BROADCAST, getSubnetBroadcast()],
+      buildScanPacket(),
+      SCAN_TIMEOUT_MS,
+    );
+  } catch (e) {
+    log("error", `sendAndCollect threw: ${e}`);
+    return [];
+  }
+
+  log("info", `Found ${results.length} device(s) in scan`);
   const devices: AcDevice[] = [];
 
   for (const { data, remoteAddress } of results) {
-    if (!data.mac) continue;
+    if (!data.mac) {
+      log("warn", `Response from ${remoteAddress} has no MAC — skipping`);
+      continue;
+    }
     const mac = data.mac as string;
+    log("info", `Binding ${mac} at ${remoteAddress}…`);
 
-    // Bind to get the session key
     try {
       await udpBindDevice(mac, remoteAddress);
-    } catch {
-      continue; // skip devices we can't bind
+    } catch (e) {
+      log("error", `Bind failed for ${mac}: ${e}`);
+      continue;
     }
 
     const key = deviceKeys.get(mac);
-    if (!key) continue;
+    if (!key) { log("error", `No key after bind for ${mac}`); continue; }
 
-    // Fetch initial status
     let state: AcState;
     try {
       state = await udpGetDeviceState(mac, remoteAddress, key);
-    } catch {
+      log("info", `State fetched for ${mac}: power=${state.power} temp=${state.targetTemp}`);
+    } catch (e) {
+      log("warn", `State fetch failed for ${mac}: ${e} — using defaults`);
       state = defaultState();
     }
 
@@ -252,8 +291,10 @@ export async function udpScanDevices(): Promise<AcDevice[]> {
       online: true,
       state,
     });
+    log("info", `Device added: ${mac} (${remoteAddress})`);
   }
 
+  log("info", `Scan done — ${devices.length} device(s) ready`);
   return devices;
 }
 

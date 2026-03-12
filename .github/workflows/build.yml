@@ -41,6 +41,27 @@ jobs:
       - name: Add Android platform
         run: npx cap add android
 
+      - name: Add Android UDP/network permissions
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          # CHANGE_WIFI_MULTICAST_STATE is critical — without it Android silently
+          # drops all incoming UDP broadcast/multicast packets (scan responses).
+          for PERM in \
+            "android.permission.INTERNET" \
+            "android.permission.ACCESS_NETWORK_STATE" \
+            "android.permission.ACCESS_WIFI_STATE" \
+            "android.permission.CHANGE_WIFI_STATE" \
+            "android.permission.CHANGE_WIFI_MULTICAST_STATE"; do
+            if ! grep -q "$PERM" "$MANIFEST"; then
+              sed -i "s|</manifest>|    <uses-permission android:name=\"$PERM\"/>\n</manifest>|" "$MANIFEST"
+              echo "Added $PERM"
+            else
+              echo "Already present: $PERM"
+            fi
+          done
+          echo "--- Final permissions ---"
+          grep "uses-permission" "$MANIFEST"
+
       - name: Sync Capacitor
         run: npx cap sync android
 
