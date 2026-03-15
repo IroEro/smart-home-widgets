@@ -60,6 +60,13 @@ export default function Index() {
     setScanLog(startEntries);
     setShowLog(true);
 
+    // Pre-import so getScanLog() is always available
+    let getScanLog: (() => Array<{ ts: number; level: "info" | "warn" | "error"; msg: string }>) | null = null;
+    try {
+      const mod = await import("@/lib/ewpe-udp");
+      getScanLog = mod.getScanLog;
+    } catch { /* not available in web */ }
+
     let scanError: string | null = null;
     try {
       const devs = await discoverDevices();
@@ -69,21 +76,15 @@ export default function Index() {
       console.error("Scan failed:", err);
     }
 
-    // Collect full UDP log (populated by ewpe-udp on native)
-    let udpEntries: Array<{ ts: number; level: "info" | "warn" | "error"; msg: string }> = [];
-    try {
-      const { getScanLog } = await import("@/lib/ewpe-udp");
-      udpEntries = getScanLog();
-    } catch { /* unavailable in web build */ }
+    // Collect UDP log AFTER scan finishes (entries were written during scan)
+    const udpEntries = getScanLog ? getScanLog() : [];
 
-    if (scanError) {
-      udpEntries = [
-        ...udpEntries,
-        { ts: Date.now(), level: "error", msg: `discoverDevices threw: ${scanError}` },
-      ];
-    }
+    const finalEntries = scanError
+      ? [...udpEntries, { ts: Date.now(), level: "error" as const, msg: `discoverDevices threw: ${scanError}` }]
+      : udpEntries;
 
-    setScanLog(makeSyntheticLog(udpEntries));
+    // Always show log, even if empty (shows at minimum the platform/mode lines)
+    setScanLog(makeSyntheticLog(finalEntries));
     setShowLog(true);
     setScanning(false);
   }
