@@ -53,23 +53,39 @@ export default function Index() {
 
   async function handleScan() {
     setScanning(true);
-    setScanLog([]);
-    setShowLog(false);
+    // Show log immediately so user sees it even if scan hangs
+    const startEntries = makeSyntheticLog([
+      { ts: Date.now(), level: "info", msg: "Scan started…" },
+    ]);
+    setScanLog(startEntries);
+    setShowLog(true);
+
+    let scanError: string | null = null;
     try {
       const devs = await discoverDevices();
       setDevices(devs);
     } catch (err) {
+      scanError = String(err);
       console.error("Scan failed:", err);
-    } finally {
-      let entries: Array<{ ts: number; level: "info" | "warn" | "error"; msg: string }> = [];
-      try {
-        const { getScanLog } = await import("@/lib/ewpe-udp");
-        entries = getScanLog();
-      } catch { /* unavailable on web */ }
-      setScanLog(makeSyntheticLog(entries));
-      setShowLog(true);
-      setScanning(false);
     }
+
+    // Collect full UDP log (populated by ewpe-udp on native)
+    let udpEntries: Array<{ ts: number; level: "info" | "warn" | "error"; msg: string }> = [];
+    try {
+      const { getScanLog } = await import("@/lib/ewpe-udp");
+      udpEntries = getScanLog();
+    } catch { /* unavailable in web build */ }
+
+    if (scanError) {
+      udpEntries = [
+        ...udpEntries,
+        { ts: Date.now(), level: "error", msg: `discoverDevices threw: ${scanError}` },
+      ];
+    }
+
+    setScanLog(makeSyntheticLog(udpEntries));
+    setShowLog(true);
+    setScanning(false);
   }
 
   async function handleTogglePower(e: React.MouseEvent, device: AcDevice) {

@@ -238,7 +238,24 @@ export function isDirectUdpAvailable(): boolean {
 /** Scan the LAN for EWPE Smart devices */
 export async function udpScanDevices(): Promise<AcDevice[]> {
   clearScanLog();
-  log("info", `Starting scan → broadcasts: [${BROADCAST}, ${getSubnetBroadcast()}]`);
+  log("info", `udpScanDevices() called`);
+  log("info", `Broadcasts: [${BROADCAST}, ${getSubnetBroadcast()}]`);
+  log("info", `Timeouts: scan=${SCAN_TIMEOUT_MS}ms max=${MAX_SCAN_MS}ms`);
+
+  // Verify plugin loads
+  let udp: Awaited<ReturnType<typeof getUdp>>;
+  try {
+    udp = await getUdp();
+    log("info", `UDP plugin loaded: ${typeof udp} keys=[${Object.keys(udp ?? {}).join(",")}]`);
+  } catch (e) {
+    log("error", `UDP plugin load failed: ${e}`);
+    return [];
+  }
+
+  if (!udp) {
+    log("error", "UDP plugin is null/undefined after load");
+    return [];
+  }
 
   let results: Awaited<ReturnType<typeof sendAndCollect>>;
   try {
