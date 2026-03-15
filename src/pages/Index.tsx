@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchDevices, setDeviceState, AcDevice, discoverDevices } from "@/lib/ewpe-service";
+import { Capacitor } from "@capacitor/core";
 import { DeviceCard } from "@/components/DeviceCard";
 import { Wifi, RefreshCw, Settings, Thermometer, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
