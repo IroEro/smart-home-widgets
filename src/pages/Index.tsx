@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchDevices, setDeviceState, AcDevice, discoverDevices } from "@/lib/ewpe-service";
+import { Capacitor } from "@capacitor/core";
 import { DeviceCard } from "@/components/DeviceCard";
 import { Wifi, RefreshCw, Settings, Thermometer, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,28 @@ export default function Index() {
 
   useEffect(() => { load(); }, [load]);
 
+  function makeSyntheticLog(entries: Array<{ ts: number; level: "info" | "warn" | "error"; msg: string }>) {
+    const isNative = Capacitor.isNativePlatform();
+    const bridgeUrl = localStorage.getItem("ewpe_bridge_url")?.trim() ?? "";
+    let mode: string;
+    if (bridgeUrl) mode = "bridge";
+    else if (isNative) mode = "udp";
+    else mode = "mock";
+
+    const prefix: Array<{ ts: number; level: "info" | "warn" | "error"; msg: string }> = [
+      { ts: Date.now(), level: "info", msg: `Platform: ${isNative ? "native (Android/iOS)" : "web/browser"}` },
+      { ts: Date.now(), level: "info", msg: `Transport mode: ${mode}` },
+    ];
+    if (mode === "mock") {
+      prefix.push({ ts: Date.now(), level: "warn", msg: "Running in MOCK mode — no real network scan performed" });
+      prefix.push({ ts: Date.now(), level: "warn", msg: "Install the APK on Android to use real UDP discovery" });
+    }
+    if (mode === "bridge" && bridgeUrl) {
+      prefix.push({ ts: Date.now(), level: "info", msg: `Bridge URL: ${bridgeUrl}` });
+    }
+    return [...prefix, ...entries];
+  }
+
   async function handleScan() {
     setScanning(true);
     setScanLog([]);
@@ -38,14 +61,13 @@ export default function Index() {
     } catch (err) {
       console.error("Scan failed:", err);
     } finally {
-      // Always pull the scan log — it's populated in ewpe-udp on native,
-      // and is a no-op (empty array) in mock/bridge mode.
+      let entries: Array<{ ts: number; level: "info" | "warn" | "error"; msg: string }> = [];
       try {
         const { getScanLog } = await import("@/lib/ewpe-udp");
-        const entries = getScanLog();
-        setScanLog(entries);
-        setShowLog(true); // always open the log after a scan
-      } catch { /* ignore on web */ }
+        entries = getScanLog();
+      } catch { /* unavailable on web */ }
+      setScanLog(makeSyntheticLog(entries));
+      setShowLog(true);
       setScanning(false);
     }
   }
