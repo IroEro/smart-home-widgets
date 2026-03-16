@@ -237,8 +237,7 @@ export function isDirectUdpAvailable(): boolean {
 
 /** Scan the LAN for EWPE Smart devices */
 export async function udpScanDevices(): Promise<AcDevice[]> {
-  // Don't wipe – caller reads log after we return
-  _scanLog.length = 0;
+  // Log is cleared by the caller (Index.tsx) via clearScanLog() before this runs
   log("info", `udpScanDevices() called`);
   log("info", `Broadcasts: [${BROADCAST}, ${getSubnetBroadcast()}]`);
   log("info", `Timeouts: scan=${SCAN_TIMEOUT_MS}ms max=${MAX_SCAN_MS}ms`);

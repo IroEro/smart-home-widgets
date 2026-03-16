@@ -53,19 +53,28 @@ export default function Index() {
 
   async function handleScan() {
     setScanning(true);
-    // Show log immediately so user sees it even if scan hangs
-    const startEntries = makeSyntheticLog([
-      { ts: Date.now(), level: "info", msg: "Scan started…" },
-    ]);
-    setScanLog(startEntries);
     setShowLog(true);
 
-    // Pre-import so getScanLog() is always available
+    // Pre-import UDP module so we can poll the live log ring-buffer
     let getScanLog: (() => Array<{ ts: number; level: "info" | "warn" | "error"; msg: string }>) | null = null;
+    let clearScanLog: (() => void) | null = null;
     try {
       const mod = await import("@/lib/ewpe-udp");
       getScanLog = mod.getScanLog;
+      clearScanLog = mod.clearScanLog;
     } catch { /* not available in web */ }
+
+    // Clear previous log and prime the display with synthetic headers
+    clearScanLog?.();
+    const synth = makeSyntheticLog([{ ts: Date.now(), level: "info", msg: "Scan started…" }]);
+    setScanLog(synth);
+
+    // Poll the live ring-buffer every 400 ms so the UI updates during the scan
+    const pollInterval = setInterval(() => {
+      if (!getScanLog) return;
+      const live = getScanLog();
+      if (live.length > 0) setScanLog(makeSyntheticLog(live));
+    }, 400);
 
     let scanError: string | null = null;
     try {
@@ -74,19 +83,18 @@ export default function Index() {
     } catch (err) {
       scanError = String(err);
       console.error("Scan failed:", err);
+    } finally {
+      clearInterval(pollInterval);
+      setScanning(false);
     }
 
-    // Collect UDP log AFTER scan finishes (entries were written during scan)
+    // Final snapshot of log
     const udpEntries = getScanLog ? getScanLog() : [];
-
-    const finalEntries = scanError
-      ? [...udpEntries, { ts: Date.now(), level: "error" as const, msg: `discoverDevices threw: ${scanError}` }]
-      : udpEntries;
-
-    // Always show log, even if empty (shows at minimum the platform/mode lines)
+    const finalEntries = [
+      ...udpEntries,
+      ...(scanError ? [{ ts: Date.now(), level: "error" as const, msg: `discoverDevices threw: ${scanError}` }] : []),
+    ];
     setScanLog(makeSyntheticLog(finalEntries));
-    setShowLog(true);
-    setScanning(false);
   }
 
   async function handleTogglePower(e: React.MouseEvent, device: AcDevice) {
