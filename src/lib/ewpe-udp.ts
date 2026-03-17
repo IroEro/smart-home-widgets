@@ -198,8 +198,8 @@ async function sendAndWait(
   key?: string
 ): Promise<Record<string, unknown>> {
   return withSocket(async (socketId, udp) => {
-    // Bind first so the socket is ready before we send
-    await udp.bind({ socketId, address: "0.0.0.0", port: DEVICE_PORT });
+    // Bind on ephemeral port 0 — binding on DEVICE_PORT fails on Android
+    await udp.bind({ socketId, address: "0.0.0.0", port: 0 });
 
     return new Promise<Record<string, unknown>>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("UDP timeout")), CMD_TIMEOUT_MS);
