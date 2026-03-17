@@ -122,9 +122,15 @@ async function sendAndCollect(
   timeoutMs: number,
 ): Promise<Array<{ data: Record<string, unknown>; remoteAddress: string; rawOuter: Record<string, unknown> }>> {
   return withSocket(async (socketId, udp) => {
+    // Bind on port 0 so the OS picks a free ephemeral port.
+    // Binding on DEVICE_PORT (7000) fails on Android because the port is already
+    // occupied or blocked; responses still arrive because devices send back to
+    // the source port that we sent from.
+    let boundPort = 0;
     try {
-      await udp.bind({ socketId, address: "0.0.0.0", port: DEVICE_PORT });
-      log("info", `Socket ${socketId} bound to 0.0.0.0:${DEVICE_PORT}`);
+      const bindResult = await udp.bind({ socketId, address: "0.0.0.0", port: 0 });
+      boundPort = bindResult?.port ?? 0;
+      log("info", `Socket ${socketId} bound to 0.0.0.0:${boundPort || "ephemeral"}`);
     } catch (e) {
       log("error", `Bind failed: ${e}`);
       throw e;
@@ -192,8 +198,8 @@ async function sendAndWait(
   key?: string
 ): Promise<Record<string, unknown>> {
   return withSocket(async (socketId, udp) => {
-    // Bind first so the socket is ready before we send
-    await udp.bind({ socketId, address: "0.0.0.0", port: DEVICE_PORT });
+    // Bind on ephemeral port 0 — binding on DEVICE_PORT fails on Android
+    await udp.bind({ socketId, address: "0.0.0.0", port: 0 });
 
     return new Promise<Record<string, unknown>>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error("UDP timeout")), CMD_TIMEOUT_MS);
